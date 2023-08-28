@@ -64,15 +64,15 @@ class BiometricDataSet(Dataset):
 class BiometricProjector(nn.Module):
     def __init__(self, feature_dim, projected_dim, device=torch.device("cpu")):
         super().__init__()
-        self.fc1 = nn.Linear(feature_dim, projected_dim, bias=False, device=device)
-        # self.fc1 = nn.Linear(feature_dim, 4*projected_dim, bias=False, device=device)
-        # self.ac1 = nn.SiLU()
-        # self.fc2 = nn.Linear(4*projected_dim, projected_dim, bias=False, device=device)
+        # self.fc1 = nn.Linear(feature_dim, projected_dim, bias=False, device=device)
+        self.fc1 = nn.Linear(feature_dim, 4*projected_dim, bias=True, device=device)
+        self.ac1 = nn.SiLU()
+        self.fc2 = nn.Linear(4*projected_dim, projected_dim, bias=False, device=device)
 
 
     def forward(self, x):
-        return self.fc1(x)
-        # return self.fc2(self.ac1(self.fc1(x)))
+        # return self.fc1(x)
+        return self.fc2(self.ac1(self.fc1(x)))
 
 
 class TripletLoss:
@@ -91,7 +91,7 @@ class TripletLoss:
 
         push = self.push(x, label)
         # (1 - self.lmb) * push + self.lmb * pull
-        return push + self.lmb*torch.sum(penalty_term)
+        return self.lmb*push + penalty_term.norm()
     
 class AUROC:
     def __init__(self,val_label,device,thresholds=512):
@@ -104,7 +104,7 @@ class AUROC:
         score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
         return self.metric(score, self.true_label)
     
-    def debug(self,x,thresh_p=0.55,thresh_n=0.55):
+    def debug(self,x,thresh_p=0.6,thresh_n=0.5):
         # x = normalize(x)
         score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
         print("Value for True Labels:")
@@ -128,9 +128,9 @@ out_dim = 32
 batch_size = 512
 lr = 1e-3
 regularization = 1e-6
-lmb = 100
-margin = 0.9
-iteration = 500
+lmb = 10
+margin = 1.1
+iteration = 200
 
 
 data_train, data_val, in_dim = get_data(device=device)
