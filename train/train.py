@@ -64,15 +64,15 @@ class BiometricDataSet(Dataset):
 class BiometricProjector(nn.Module):
     def __init__(self, feature_dim, projected_dim, device=torch.device("cpu")):
         super().__init__()
-        # self.fc1 = nn.Linear(feature_dim, projected_dim, bias=False, device=device)
-        self.fc1 = nn.Linear(feature_dim, 4*projected_dim, bias=True, device=device)
-        self.ac1 = nn.SiLU()
-        self.fc2 = nn.Linear(4*projected_dim, projected_dim, bias=False, device=device)
+        self.fc1 = nn.Linear(feature_dim, projected_dim, bias=False, device=device)
+        # self.fc1 = nn.Linear(feature_dim, 4*projected_dim, bias=True, device=device)
+        # self.ac1 = nn.Tanh()
+        # self.fc2 = nn.Linear(4*projected_dim, projected_dim, bias=False, device=device)
 
 
     def forward(self, x):
-        # return self.fc1(x)
-        return self.fc2(self.ac1(self.fc1(x)))
+        return self.fc1(x)
+        # return self.fc2(self.ac1(self.fc1(x)))
 
 
 class TripletLoss:
@@ -83,15 +83,16 @@ class TripletLoss:
 
     def __call__(self, x: torch.tensor, label: torch.tensor):
         # x = normalize(x)
-        # mask = (label.unsqueeze(0) == label.unsqueeze(1))[self.row, self.col]
-        # row_mask = self.row[mask]
-        # col_mask = self.col[mask]
-        # pull = 1 - torch.sum(x[row_mask] * x[col_mask]) / len(row_mask)
-        penalty_term = torch.sum(x * x,axis=1) - 1
+        mask = (label.unsqueeze(0) == label.unsqueeze(1))[self.row, self.col]
+        row_mask = self.row[mask]
+        col_mask = self.col[mask]
+        pull = nn.functional.sigmoid(10*torch.sum(x[row_mask] * x[col_mask],axis=1)-3)
+        pull = 1 - torch.sum(pull)/ len(row_mask)
+        # penalty_term = torch.sum(x * x,axis=1) - 1
 
         push = self.push(x, label)
         # (1 - self.lmb) * push + self.lmb * pull
-        return self.lmb*push + penalty_term.norm()
+        return push + self.lmb*pull 
     
 class AUROC:
     def __init__(self,val_label,device,thresholds=512):
@@ -101,12 +102,12 @@ class AUROC:
 
     def compute(self,x):
         # x = normalize(x)
-        score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
+        score = nn.functional.sigmoid(10*(x@x.T)[self.row, self.col]-3)
         return self.metric(score, self.true_label)
     
-    def debug(self,x,thresh_p=0.6,thresh_n=0.5):
+    def debug(self,x,thresh_p=0.95,thresh_n=0.75):
         # x = normalize(x)
-        score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
+        score = nn.functional.sigmoid(10*(x@x.T)[self.row, self.col]-3)
         print("Value for True Labels:")
         score_p = score[self.true_label]
         
@@ -124,13 +125,13 @@ class AUROC:
 
 device = torch.device("cuda")
 torch.set_num_threads(32)
-out_dim = 32
+out_dim = 64
 batch_size = 512
 lr = 1e-3
 regularization = 1e-6
-lmb = 10
-margin = 1.1
-iteration = 200
+lmb = 50
+margin = 0.85
+iteration = 800
 
 
 data_train, data_val, in_dim = get_data(device=device)
@@ -140,7 +141,7 @@ auroc = AUROC(data_val[1],device=device)
 model = BiometricProjector(in_dim, out_dim, device=device)
 loss_func = TripletLoss(batch_size, lmb, margin, device=device)
 optimizer = torch.optim.Adam(model.parameters(), lr=lr,weight_decay=regularization)
-scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.1, total_iters=iteration)
+scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=1.0, end_factor=0.5, total_iters=iteration)
 auroc_val = torch.nan
 
 with torch.no_grad():
