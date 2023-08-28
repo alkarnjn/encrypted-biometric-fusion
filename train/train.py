@@ -7,6 +7,7 @@ import torch.nn as nn
 from pytorch_metric_learning import losses
 from pytorch_metric_learning import distances
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 
 
 def get_data(adr=None, device=torch.device("cpu"), test=0.8, train=0.2):
@@ -64,9 +65,14 @@ class BiometricProjector(nn.Module):
     def __init__(self, feature_dim, projected_dim, device=torch.device("cpu")):
         super().__init__()
         self.fc1 = nn.Linear(feature_dim, projected_dim, bias=False, device=device)
+        # self.fc1 = nn.Linear(feature_dim, 4*projected_dim, bias=False, device=device)
+        # self.ac1 = nn.SiLU()
+        # self.fc2 = nn.Linear(4*projected_dim, projected_dim, bias=False, device=device)
+
 
     def forward(self, x):
         return self.fc1(x)
+        # return self.fc2(self.ac1(self.fc1(x)))
 
 
 class TripletLoss:
@@ -76,35 +82,55 @@ class TripletLoss:
         self.push = losses.TripletMarginLoss(margin=margin, distance=distances.DotProductSimilarity())
 
     def __call__(self, x: torch.tensor, label: torch.tensor):
-        x = normalize(x)
-        mask = (label.unsqueeze(0) == label.unsqueeze(1))[self.row, self.col]
-        row_mask = self.row[mask]
-        col_mask = self.col[mask]
-        pull = 1 - torch.sum(x[row_mask] * x[col_mask]) / len(row_mask)
+        # x = normalize(x)
+        # mask = (label.unsqueeze(0) == label.unsqueeze(1))[self.row, self.col]
+        # row_mask = self.row[mask]
+        # col_mask = self.col[mask]
+        # pull = 1 - torch.sum(x[row_mask] * x[col_mask]) / len(row_mask)
+        penalty_term = torch.sum(x * x,axis=1) - 1
+
         push = self.push(x, label)
-        return (1 - self.lmb) * push + self.lmb * pull
+        # (1 - self.lmb) * push + self.lmb * pull
+        return push + self.lmb*torch.sum(penalty_term)
     
 class AUROC:
-    def __init__(self,val_label,device,thresholds=128):
+    def __init__(self,val_label,device,thresholds=512):
         self.row, self.col = torch.triu_indices(len(val_label),len(val_label), offset=1, device=device)
         self.true_label = (val_label.unsqueeze(0) == val_label.unsqueeze(1))[self.row, self.col]
         self.metric = BinaryAUROC(thresholds=thresholds)
 
     def compute(self,x):
-        x = normalize(x)
-        score = (x@x.T)[self.row, self.col]
-        return self.metric(score,self.true_label)
+        # x = normalize(x)
+        score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
+        return self.metric(score, self.true_label)
+    
+    def debug(self,x,thresh_p=0.55,thresh_n=0.55):
+        # x = normalize(x)
+        score = nn.functional.sigmoid((x@x.T)[self.row, self.col])
+        print("Value for True Labels:")
+        score_p = score[self.true_label]
+        
+        total_positive = len(score_p)
+        score_p = score_p[score_p<thresh_p]
+        bad_positive_score = len(score_p)
+        print(f"out of {total_positive} True labels scores {bad_positive_score/total_positive*100:<4.2f}% were less than {thresh_p}")
+
+        score_n = score[~self.true_label]
+        total_negative = len(score_n)
+        score_n = score_n[score_n>thresh_n]
+        bad_negative_score = len(score_n)
+        print(f"out of {total_negative} False labels scores {bad_negative_score/total_negative*100:<4.2f}% were greater than {thresh_n}")
 
 
 device = torch.device("cuda")
 torch.set_num_threads(32)
 out_dim = 32
-batch_size = 128
+batch_size = 512
 lr = 1e-3
-regularization = 1e-5
-lmb = 0.1
-margin = 0.5
-iteration = 25
+regularization = 1e-6
+lmb = 100
+margin = 0.9
+iteration = 500
 
 
 data_train, data_val, in_dim = get_data(device=device)
@@ -120,17 +146,24 @@ auroc_val = torch.nan
 with torch.no_grad():
     auroc_init = auroc.compute(model(data_val[0]))
 
-for epoch in range(iteration):
+p_bar = tqdm(range(iteration))
+for epoch in p_bar:
     avg_loss = 0
-    p_bar = tqdm(data_train)
-    for iter, (x, label) in enumerate(p_bar):
+    for index,(x, label) in enumerate(data_train):
         loss = loss_func(model(x), label)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         avg_loss += loss.detach()
-        if not (iter+1)%20:
-            with torch.no_grad():
-                auroc_val = auroc.compute(model(data_val[0]))
-            p_bar.set_description(f"epoch{epoch+1:<3d}  AVGLoss:{avg_loss/len(data_train):<9.6f}    "
-                                  f"AUROC:{auroc_val:<9.6f}   AUROC_Initial:{auroc_init:<9.6f}")
+        if not (1+index)%10:
+            p_bar.set_description(f"AVGLoss:{avg_loss/len(data_train):<9.6f}    "
+                              f"AUROC:{auroc_val:<9.6f}   AUROC_Initial:{auroc_init:<9.6f}")
+    if not (epoch+1)%5:
+        with torch.no_grad():
+            auroc_val = auroc.compute(model(data_val[0]))
+        p_bar.set_description(f"AVGLoss:{avg_loss/len(data_train):<9.6f}    "
+                              f"AUROC:{auroc_val:<9.6f}   AUROC_Initial:{auroc_init:<9.6f}")
+            
+            
+with torch.no_grad():
+    auroc.debug(model(data_val[0]))
