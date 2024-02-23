@@ -532,7 +532,7 @@ def train(gamma,iters,spec_margin=None,spec_lamb=None):
                 V = []
                 randie = 123
                 print("seed of:",randie)
-                print("rate, anneal_rate:", rate, anneal_rate)
+                # print("rate, anneal_rate:", rate, anneal_rate)
                 model = Linear_Feature_Fusion_FHEaware(X_train,M,V,L_train,gamma,margin,lamb,regularization=reg,seed=randie)
                 
                 #first we select a scale such that our polynomial function will work properly
