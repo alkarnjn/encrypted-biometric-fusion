@@ -17,7 +17,7 @@ import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
 
 from model import Linear_Feature_Fusion, Linear_Feature_Fusion_FHEaware
-from data_generation import data_gen
+# from data_generation import data_gen
 
 from ROC import New_ROC_AUC
 
