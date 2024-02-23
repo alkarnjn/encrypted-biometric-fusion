@@ -27,7 +27,7 @@ def New_ROC_AUC(data, L):
     count = len(L)
     for i in range(count):
         for j in range(i,count):
-            score = Cosine_Similarity_no_div(data[i,:],data[j,:])
+            score = Cosine_Distance_no_div(data[i,:],data[j,:])
             if L[i]==L[j]:
                 label = 1
             else:

@@ -1,0 +1,9 @@
+data_generation
+pandas
+numpy
+matplotlib
+scikit-learn
+scipy
+tqdm
+
+
