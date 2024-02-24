@@ -702,6 +702,6 @@ void encrypted_feature_fusion_polynomial_approximation_arbitrary(string P_file_n
 
 int main()
 {
-    encrypted_feature_fusion_polynomial_approximation_arbitrary("../../train/data/degree=2strict/diagonal/XXX.txt","../results/normalized_encrypted_results_lambda=XXX_margin=XXX_gamma=XXX.txt",2);
+    encrypted_feature_fusion_polynomial_approximation_arbitrary("/home/alka/research/HEFT/train/data/degree=2strict/approximate_best_P_value_transpose_lambda=0.99_margin=1.0_gamma=32_reg=0.txt","/home/alka/research/HEFT/train/data/exact_results/exact_best_P_value_transpose_lambda=0.1_margin=0.1_gamma=32_reg=0.txt",2);
     return 0;
 }

@@ -13,8 +13,8 @@ import math
 
 import torch
 from torch.distributions.multivariate_normal import MultivariateNormal
-from model import Linear_Feature_Fusion_Approximate, Linear_Feature_Fusion
-from data_generation import data_gen
+# from model import Linear_Feature_Fusion_Approximate, Linear_Feature_Fusion
+# from data_generation import data_gen
 import ast
 
 from ROC import New_ROC_AUC
@@ -34,8 +34,8 @@ def rescale_p(p_file_name, scale=None):
     p_final = torch.div(p_final,torch.linalg.norm(p_final))
     
     if not scale:
-        a_file = open("data5/dataset/A_values_train.txt",'r')
-        b_file = open("data5/dataset/B_values_train.txt",'r')
+        a_file = open("data/dataset/A_values_train.txt",'r')
+        b_file = open("data/dataset/B_values_train.txt",'r')
         A = []
         L = []
         for line in a_file:
@@ -231,4 +231,4 @@ if __name__ == "__main__":
     #rescale_p("data4/exact_results/exact_best_P_value_transpose_lambda=0.01_margin=0.1_gamma=32_reg=0.txt")
     
     #rescale_p("data4/exact_results/exact_best_P_value_transpose_lambda=0.01_margin=0.25_gamma=32_reg=0.txt")
-    rescale_p("data5/exact_results/exact_best_P_value_transpose_lambda=0.5_margin=0.1_gamma=32_reg=0.txt")
+    rescale_p("/home/alka/research/HEFT/train/data/exact_results/exact_best_P_value_transpose_lambda=0.99_margin=1.0_gamma=32_reg=0.txt")
