@@ -48,13 +48,17 @@ def train_exact(gamma,iters,spec_margin=None,spec_lamb=None):
     
     #start by loading feature vectors and labels
     a = []
-    A_infile = open("feature-extraction/extractions/VGGFace_vgg_cplfw.txt",'r')
+    # A_infile = open("feature-extraction/extractions/VGGFace_vgg_cplfw.txt",'r')
+    A_infile = open("/home/alka/research/fixed-length-fingerprint-extractors/notebooks/texture_embeddings.txt",'r')
     for line in A_infile:
         line = line.strip().split()
         a.append(torch.tensor([float(char) for char in line]))
 
     L = []
-    L_infile = open("feature-extraction/extractions/deep_speaker_librispeech_google_labels.txt",'r')
+    # L_infile = open("feature-extraction/extractions/deep_speaker_librispeech_google_labels.txt",'r')
+    L_infile = open("/home/alka/research/fixed-length-fingerprint-extractors/notebooks/label.txt",'r')
+
+   
     
     l_dict = {}
     for line in L_infile:
@@ -75,7 +79,7 @@ def train_exact(gamma,iters,spec_margin=None,spec_lamb=None):
         l_dict[l] += 1
     
     b = []
-    B_infile = open("feature-extraction/extractions/deep_speaker_librispeech_google.txt",'r')
+    B_infile = open("/home/alka/research/fixed-length-fingerprint-extractors/notebooks/minutiae_embeddings.txt",'r')
     for line in B_infile:
         line = line.strip().split()
         b.append(torch.tensor([float(char) for char in line]))
